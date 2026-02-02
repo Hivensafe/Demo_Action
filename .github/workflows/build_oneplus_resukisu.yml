@@ -288,10 +288,10 @@ jobs:
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' ./security/Kconfig
 
           
-      - name: ⚙️ Set SuKiSU Ultra (设置SuKiSU Ultra)  
+      - name: ⚙️ Set ReSuKiSU (设置ReSuKiSU)  
         run: |
           cd kernel_workspace
-          echo "正在配置SukiSU Ultra..."
+          echo "正在配置ReSukiSU..."
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
           cd ./KernelSU
           GIT_COMMIT_HASH=$(git rev-parse --short=8 HEAD)
@@ -323,7 +323,7 @@ jobs:
           ' kernel/Kbuild > kernel/Kbuild.tmp && mv kernel/Kbuild.tmp kernel/Kbuild
 
           # 生成自定义版本号（基于提交计数）, 失败时使用 114514
-          KSU_VERSION=$(expr $(git rev-list --count main) + 37185 2>/dev/null || echo 114514)
+          KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
           # 存储版本号到 GitHub 环境变量
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
