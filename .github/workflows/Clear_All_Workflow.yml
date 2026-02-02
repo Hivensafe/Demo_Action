@@ -7,7 +7,7 @@ on:
         type: choice
         description: '清理的工作流名称'
         required: true
-        default: 'Build_oneplus_sm8750'
+        default: 'build_oneplus_sm8750'
         options:
           - build_oneplus_resukisu
           - build_oneplus_sm8750
