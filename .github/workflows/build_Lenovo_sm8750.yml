@@ -1,4 +1,4 @@
-name: build_Lenovo_sm8750
+name: Build_Lenovo_sm8750
 
 env:
   gz_branch: 'heads'
