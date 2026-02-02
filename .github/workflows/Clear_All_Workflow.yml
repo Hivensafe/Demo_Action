@@ -9,6 +9,7 @@ on:
         required: true
         default: 'Build_oneplus_sm8750'
         options:
+          - Build_oneplus_resukisu
           - Build_oneplus_sm8750
           - build_Lenovo_sm8750
           - Encrypt_script
