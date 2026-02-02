@@ -103,14 +103,14 @@ jobs:
               echo "SCHED_FILE=oneplus_pad_2_pro_b" >> $GITHUB_ENV
               ;;
             oneplus_ace5_ultra)
-              echo "REPO_MANIFEST=mt6991_v_15.0.2_ace5_ultra" >> $GITHUB_ENV
+              echo "REPO_MANIFEST=mt6991_b_16.0.0_oneplus_ace5_ultra" >> $GITHUB_ENV
               echo "IMAGENAME=Image_Op_Ace_5_Ultra" >> $GITHUB_ENV
-              echo "SCHED_FILE=oneplus_ace5_ultra" >> $GITHUB_ENV
+              echo "SCHED_FILE=oneplus_ace5_ultra_b" >> $GITHUB_ENV
               ;;
             realme_GT7)
-              echo "REPO_MANIFEST=mt6991_v_15.0.2_ace5_ultra" >> $GITHUB_ENV
+              echo "REPO_MANIFEST=mt6991_b_16.0.0_oneplus_ace5_ultra" >> $GITHUB_ENV
               echo "IMAGENAME=Image_Rm_GT_7" >> $GITHUB_ENV
-              echo "SCHED_FILE=oneplus_ace5_ultra" >> $GITHUB_ENV
+              echo "SCHED_FILE=oneplus_ace5_ultra_b" >> $GITHUB_ENV
               ;;
             realme_GT7pro)
               echo "IMAGENAME=Image_Rm_GT_7_Pro" >> $GITHUB_ENV
@@ -135,7 +135,7 @@ jobs:
             oneplus_13 | oneplus_ace5_pro | oneplus_ace_6 | oneplus_13t | realme_GT7pro | realme_GT7pro_Speed | realme_GT8)
               echo 'DEFAULT_SUFFIX=-android15-8-gf4dc45704e54-abogki446052083-4k' >> $GITHUB_ENV
               ;;
-          esac
+            esac
             echo "使用原官核名称：${{ env.DEFAULT_SUFFIX }}"
           else
             echo "使用自定义名称: ${{ github.event.inputs.custom_kernel_suffix }}"
