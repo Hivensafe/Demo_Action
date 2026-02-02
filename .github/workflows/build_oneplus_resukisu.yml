@@ -306,7 +306,7 @@ jobs:
           done
           [ -z "$KSU_API_VERSION" ] && KSU_API_VERSION="3.1.7"
           echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
-          VERSION_DEFINITIONS=$'define get_ksu_version_full\nv\\$1-'"$GIT_COMMIT_HASH"$'-TG@qdykernel\nendef\n\nKSU_VERSION_API := '"$KSU_API_VERSION"$'\nKSU_VERSION_FULL := v'"$KSU_API_VERSION"$'-'"$GIT_COMMIT_HASH"$'-TG@qdykernel'
+          VERSION_DEFINITIONS=$'define get_ksu_version_full\nv\\$1-'"$GIT_COMMIT_HASH"$'-Re-TG@qdykernel\nendef\n\nKSU_VERSION_API := '"$KSU_API_VERSION"$'\nKSU_VERSION_FULL := v'"$KSU_API_VERSION"$'-'"$GIT_COMMIT_HASH"$'-Re-TG@qdykernel'
           sed -i '/define get_ksu_version_full/,/endef/d' kernel/Kbuild
           # 删除 API 版本定义
           sed -i '/KSU_VERSION_API :=/d' kernel/Kbuild
@@ -331,7 +331,7 @@ jobs:
           # 验证修改结果
           grep -A10 "REPO_OWNER" kernel/Kbuild  # 检查插入点后的内容
           grep "KSU_VERSION_FULL" kernel/Kbuild # 确认版本定义存在
-          echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}-TG@qdykernel"
+          echo "ReSukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}-Re-TG@qdykernel"
 
             
       - name: 🔧 Set up SUSFS (配置 SUSFS)
