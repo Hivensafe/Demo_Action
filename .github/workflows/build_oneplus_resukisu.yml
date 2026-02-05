@@ -308,7 +308,7 @@ jobs:
               tr -d '[:space:]')
             [ -n "$KSU_API_VERSION" ] && break || sleep 1
           done
-          [ -z "$KSU_API_VERSION" ] && KSU_API_VERSION=4.1.0"
+          [ -z "$KSU_API_VERSION" ] && KSU_API_VERSION="4.1.0"
           echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
           VERSION_DEFINITIONS=$'define get_ksu_version_full\nv\\$1-'"$GIT_COMMIT_HASH"$'-Re-TG@qdykernel\nendef\n\nKSU_VERSION_API := '"$KSU_API_VERSION"$'\nKSU_VERSION_FULL := v'"$KSU_API_VERSION"$'-'"$GIT_COMMIT_HASH"$'-Re-TG@qdykernel'
           sed -i '/define get_ksu_version_full/,/endef/d' kernel/Kbuild
