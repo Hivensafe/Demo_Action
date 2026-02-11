@@ -2,7 +2,16 @@ name: Build_oneplus_sm8750
 on:
   workflow_dispatch:
     inputs:
-      DEVICES_NAME:
+      ksu_type:
+        description: "📝请选择要集成的KSU："
+        required: true
+        type: choice
+        options:
+          - 'ReSukiSU'
+          - 'SukiSU-Ultra'
+        default: 'ReSukiSU'
+        
+      device_name:
         description: "📝请选择要编译的机型："
         required: true
         type: choice
@@ -46,29 +55,21 @@ on:
         required: false
         default: true
         type: boolean
-        
 
-      enable_serialid_check:
-        description: "开启SerialID校验"
-        required: false
-        default: true
-        type: boolean
-      
-      
        
 
 
 jobs:
   build:
-    name: Build_${{ github.event.inputs.DEVICES_NAME }}
+    name: Build_${{ github.event.inputs.device_name }}_${{ github.event.inputs.ksu_type }}
     runs-on: ubuntu-latest
     env:
-      DEVICES_NAME:           ${{ github.event.inputs.DEVICES_NAME }}
+      KSU_TYPE:           ${{ github.event.inputs.ksu_type }}
+      DEVICES_NAME:           ${{ github.event.inputs.device_name }}
       KEEP_ORIGINAL_SETTINGS: ${{ github.event.inputs.keep_original_settings }}
       CUSTOM_KERNEL_SUFFIX:   ${{ github.event.inputs.custom_kernel_suffix }}
       CUSTOM_KERNEL_TIME:     ${{ github.event.inputs.custom_kernel_time }}
       ENABLE_SCX:       ${{ github.event.inputs.enable_scx }}
-      ENABLE_SERIALID_CHECK:       ${{ github.event.inputs.enable_serialid_check }}
       ENABLE_BBG:       ${{ github.event.inputs.enable_bbg }}
     steps:
       - uses: actions/checkout@v4
@@ -114,19 +115,19 @@ jobs:
               ;;
             realme_GT7pro)
               echo "IMAGENAME=Image_Rm_GT_7_Pro" >> $GITHUB_ENV
-              echo "SCHED_FILE=none" >> $GITHUB_ENV
+              echo "SCHED_FILE=oneplus_ace_6" >> $GITHUB_ENV
               ;;
             realme_GT7pro_Speed)
               echo "IMAGENAME=Image_Rm_GT_7_Pro_Speed" >> $GITHUB_ENV
-              echo "SCHED_FILE=none" >> $GITHUB_ENV
+              echo "SCHED_FILE=oneplus_ace_6" >> $GITHUB_ENV
               ;;
             realme_GT8)
               echo "IMAGENAME=Image_Rm_GT_8" >> $GITHUB_ENV
-              echo "SCHED_FILE=none" >> $GITHUB_ENV
+              echo "SCHED_FILE=oneplus_ace_6" >> $GITHUB_ENV
           esac
           if [ "${{ env.KEEP_ORIGINAL_SETTINGS }}" = "true" ] && [ -z "${{ github.event.inputs.custom_kernel_suffix }}" ]; then
             case "${{ env.DEVICES_NAME }}" in
-            oneplus_pad_2_pro)
+             oneplus_pad_2_pro)
               echo 'DEFAULT_SUFFIX=-android15-8-g5a0ffb447c1d-ab13771415-4k' >> $GITHUB_ENV
               ;;
             oneplus_ace5_ultra | realme_GT7)
@@ -135,7 +136,7 @@ jobs:
             oneplus_13 | oneplus_ace5_pro | oneplus_ace_6 | oneplus_13t | realme_GT7pro | realme_GT7pro_Speed | realme_GT8)
               echo 'DEFAULT_SUFFIX=-android15-8-gf4dc45704e54-abogki446052083-4k' >> $GITHUB_ENV
               ;;
-            esac
+          esac
             echo "使用原官核名称：${{ env.DEFAULT_SUFFIX }}"
           else
             echo "使用自定义名称: ${{ github.event.inputs.custom_kernel_suffix }}"
@@ -173,9 +174,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends binutils python-is-python3 libssl-dev libelf-dev dos2unix ccache p7zip-full &
           echo "正在克隆源码仓库..."
           if [ "${DEVICES_NAME}" = "realme_GT7pro" ] || [ "${DEVICES_NAME}" = "realme_GT7pro_Speed" ] || [ "${DEVICES_NAME}" = "realme_GT8" ]; then
-            aria2c -s16 -x16 -k1M https://github.com/realme-kernel-opensource/realme_GT7pro-AndroidB-common-source/archive/refs/heads/master.zip -o common.zip
+            aria2c -s16 -x16 -k1M https://github.com/realme-kernel-opensource/realme_GT8-AndroidB-common-source/archive/refs/heads/master.zip -o common.zip
             unzip -q common.zip && 
-            mv "realme_GT7pro-AndroidB-common-source-master" common
+            mv "realme_GT8-AndroidB-common-source-master" common
           elif [ "${DEVICES_NAME}" = "oneplus_ace5_ultra" ] || [ "${DEVICES_NAME}" = "realme_GT7" ]; then
             aria2c -s16 -x16 -k1M https://github.com/OnePlusOSS/android_kernel_oneplus_mt6991/archive/refs/heads/oneplus/${REPO_MANIFEST}.zip -o common.zip
             unzip -q common.zip && 
@@ -206,7 +207,7 @@ jobs:
           
       - name: 🛠 Set ccache DIR(配置ccache目录)
         run: |
-          echo "CCACHE_DIR=$HOME/.ccache_${{ env.DEVICES_NAME }}" >> $GITHUB_ENV
+          echo "CCACHE_DIR=$HOME/.ccache_${{ env.KSU_TYPE }}_${{ env.DEVICES_NAME }}" >> $GITHUB_ENV
           echo "CCACHE_MAXSIZE=3G" >> $GITHUB_ENV
           echo "当前磁盘空间："
           df -h
@@ -217,10 +218,10 @@ jobs:
         id: ccache-restore
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-neov2-${{ env.DEVICES_NAME }}-${{ runner.os }}-main
+          key: ccache-${{ env.KSU_TYPE }}-${{ env.DEVICES_NAME }}-${{ runner.os }}-main
           restore-keys: |
-            ccache-neov2-${{ env.DEVICES_NAME }}-${{ runner.os }}-
-            ccache-neov2-${{ env.DEVICES_NAME }}-
+            ccache-${{ env.KSU_TYPE }}-${{ env.DEVICES_NAME }}-${{ runner.os }}-
+            ccache-${{ env.KSU_TYPE }}-${{ env.DEVICES_NAME }}-
       
       - name: 📥 Init ccache (初始化配置ccache)
         run: |
@@ -249,24 +250,7 @@ jobs:
             echo "ccache缓存命中详情:"
             ccache -sv
           fi
-
-      - name: 🛠 Set SerialID Check (添加SerialID校验)
-        if: ${{ env.ENABLE_SERIALID_CHECK }}
-        working-directory: kernel_workspace/common
-        run: |
-          if grep -q 'SOC_SN_CHECK' init/main.c; then
-            echo "main.c 已包含, 跳过"
-            exit 0
-          else
-            cp "${GITHUB_WORKSPACE}/.github/workflows/tools/serialid_check.c" ./
-            LINE=$(grep -n '^#include' init/main.c | tail -n 1 | cut -d: -f1)
-            head -n "$LINE" init/main.c > init/main.c.patched
-            cat serialid_check.c >> init/main.c.patched
-            tail -n +$((LINE+1)) init/main.c >> init/main.c.patched
-            mv init/main.c.patched init/main.c
-            echo "已自动插入 serialid_check.c 到 main.c"
-          fi
-      
+         
       - name: 🔧 apply lz4 1.10.0 & zstd 1.5.7 patches (添加lz4 1.10.0 & zstd 1.5.7补丁)
         run: |
           echo "正在添加lz4 1.10.0 & zstd 1.5.7补丁…"
@@ -288,64 +272,114 @@ jobs:
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' ./security/Kconfig
 
           
-      - name: ⚙️ Set SuKiSU Ultra (设置SuKiSU Ultra)
+      - name: ⚙️ Set ${{ env.KSU_TYPE }} (设置${{ env.KSU_TYPE }})
         run: |
           cd kernel_workspace
-          echo "正在配置SukiSU Ultra..."
-          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s builtin
-          cd ./KernelSU
-          GIT_COMMIT_HASH=$(git rev-parse --short=8 HEAD)
-          echo "当前提交哈希: $GIT_COMMIT_HASH"
-          export KSU_VERSION=$KSU_VERSION
-          for i in {1..3}; do
-            KSU_API_VERSION=$(curl -s "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/builtin/kernel/Kbuild" | 
-              grep -m1 "KSU_VERSION_API :=" | 
-              awk -F'= ' '{print $2}' | 
-              tr -d '[:space:]')
-            [ -n "$KSU_API_VERSION" ] && break || sleep 1
-          done
-          [ -z "$KSU_API_VERSION" ] && KSU_API_VERSION="3.1.7"
-          echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
-          VERSION_DEFINITIONS=$'define get_ksu_version_full\nv\\$1-'"$GIT_COMMIT_HASH"$'-TG@qdykernel\nendef\n\nKSU_VERSION_API := '"$KSU_API_VERSION"$'\nKSU_VERSION_FULL := v'"$KSU_API_VERSION"$'-'"$GIT_COMMIT_HASH"$'-TG@qdykernel'
-          sed -i '/define get_ksu_version_full/,/endef/d' kernel/Kbuild
-          # 删除 API 版本定义
-          sed -i '/KSU_VERSION_API :=/d' kernel/Kbuild
-          # 删除完整版本定义
-          sed -i '/KSU_VERSION_FULL :=/d' kernel/Kbuild
-          # 在 REPO_OWNER 行后插入新版本定义
-          awk -v def="$VERSION_DEFINITIONS" '
-            # 当找到 REPO_OWNER 行时，插入版本定义并设置标记
-            /REPO_OWNER :=/ {print; print def; inserted=1; next}
-            # 打印所有行
-            1
-            # 如果未找到插入点，在文件末尾追加
-            END {if (!inserted) print def}
-          ' kernel/Kbuild > kernel/Kbuild.tmp && mv kernel/Kbuild.tmp kernel/Kbuild
-
-          # 生成自定义版本号（基于提交计数）, 失败时使用 114514
-          KSU_VERSION=$(expr $(git rev-list --count main) + 37185 2>/dev/null || echo 114514)
-          # 存储版本号到 GitHub 环境变量
-          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-          echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
-
-          # 验证修改结果
-          grep -A10 "REPO_OWNER" kernel/Kbuild  # 检查插入点后的内容
-          grep "KSU_VERSION_FULL" kernel/Kbuild # 确认版本定义存在
-          echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}-TG@qdykernel"
+          echo "正在配置${{ env.KSU_TYPE }}..."
+          if [ "${{ env.KSU_TYPE }}" == 'ReSukiSU' ]; then
+            curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/refs/heads/main/kernel/setup.sh" | bash -s main
+          else
+            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s builtin
+            cd ./KernelSU
+            GIT_COMMIT_HASH=$(git rev-parse --short=8 HEAD)
+            echo "当前提交哈希: $GIT_COMMIT_HASH"
+            export KSU_VERSION=$KSU_VERSION
+            for i in {1..3}; do
+              KSU_API_VERSION=$(curl -s "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/builtin/kernel/Kbuild" | 
+                grep -m1 "KSU_VERSION_API :=" | 
+                awk -F'= ' '{print $2}' | 
+                tr -d '[:space:]')
+              [ -n "$KSU_API_VERSION" ] && break || sleep 1
+            done
+            [ -z "$KSU_API_VERSION" ] && KSU_API_VERSION="4.1.0"
+            echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
+            VERSION_DEFINITIONS=$'define get_ksu_version_full\nv\\$1-'"$GIT_COMMIT_HASH"$'-TG@qdykernel\nendef\n\nKSU_VERSION_API := '"$KSU_API_VERSION"$'\nKSU_VERSION_FULL := v'"$KSU_API_VERSION"$'-'"$GIT_COMMIT_HASH"$'-TG@qdykernel'
+            
+            sed -i '/define get_ksu_version_full/,/endef/d' kernel/Kbuild
+            sed -i '/KSU_VERSION_API :=/d' kernel/Kbuild
+            sed -i '/KSU_VERSION_FULL :=/d' kernel/Kbuild
+            awk -v def="$VERSION_DEFINITIONS" '
+              /REPO_OWNER :=/ {print; print def; inserted=1; next}
+              1
+              END {if (!inserted) print def}
+            ' kernel/Kbuild > kernel/Kbuild.tmp && mv kernel/Kbuild.tmp kernel/Kbuild
+            KSU_VERSION=$(expr $(git rev-list --count main) + 37185 2>/dev/null || echo 114514)
+            echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+            echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
+            grep -A10 "REPO_OWNER" kernel/Kbuild
+            grep "KSU_VERSION_FULL" kernel/Kbuild
+            echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}-TG@qdykernel"
+          fi
 
             
       - name: 🔧 Set up SUSFS (配置 SUSFS)
         run: |
           cd kernel_workspace
-          echo "正在添加SukiSU Ultra补丁..."
-          git clone https://github.com/ShirkNeko/susfs4ksu.git -b gki-android15-6.6
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git
+          if [ "${{ env.KSU_TYPE }}" == 'ReSukiSU' ]; then
+            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android15-6.6
+            cd KernelSU 
+            git config --global user.email "qiudaoyu2888@gmail.com"
+            git config --global user.name "Q1udaoyu"
+            git revert e16cf610855b73fd248d9e3609cd993ec667de02
+            KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
+            echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+            echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
+            cd ..
+            cd common
+            wget https://gitlab.com/simonpunk/susfs4ksu/-/raw/f77334c982f9970958b856665c4d26ddf75e8248/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch
+            cd ..
+          else
+            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android15-6.6
+            cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
+            wget https://github.com/cctv18/oppo_oplus_realme_sm8750/raw/refs/heads/main/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
+            cd ./common
+            patch -p1 < 69_hide_stuff.patch || true
+            cd ..
+          fi
           cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
           cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-          cp ./SukiSU_patch/69_hide_stuff.patch ./common/
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch || true
+          cd ..
+          echo "[INFO] 检查 susfs_def.h 是否存在..."
+          if test -f common/include/linux/susfs_def.h; then
+            echo "[OK] 已找到 common/include/linux/susfs_def.h"
+          else
+            echo "[ERR] 未找到 susfs_def.h，终止执行"
+            exit 1
+          fi
+          BASE_C=common/fs/proc/base.c
+          echo "[INFO] 目标文件：$BASE_C"
+          echo "[INFO] 检查是否已包含 susfs_def.h ..."
+          if grep -q 'susfs_def.h' "$BASE_C"; then
+            echo "[SKIP] $BASE_C 中已包含 susfs_def.h"
+          else
+            echo "[INFO] 准备插入 susfs_def.h 引用..."
+            if grep -q '#include <linux/cpufreq_times.h>' "$BASE_C"; then
+              sed -i '/#include <linux\/cpufreq_times.h>/a \
+          \
+          #ifdef CONFIG_KSU_SUSFS_SUS_MAP\
+          #include <linux/susfs_def.h>\
+          #endif\
+          ' "$BASE_C"
+              echo "[OK] susfs_def.h 引用已插入"
+            else
+              echo "[ERR] 未找到 cpufreq_times.h include，无法插入 susfs_def.h"
+              exit 1
+            fi
+          fi
+          echo "[INFO] 清理可能存在的 patch 残留文件..."
+          rm -f common/fs/proc/base.c.rej
+          echo "[OK] 清理完成（如存在）"
+          echo "[INFO] 最终校验 susfs_def.h 插入结果："
+          if grep -n 'susfs_def.h' "$BASE_C"; then
+            echo "[OK] 最终校验通过"
+          else
+            echo "[ERR] 最终校验失败"
+            exit 1
+          fi
+          echo "[OK] SUSFS 补丁处理流程全部完成"
 
 
 
@@ -355,6 +389,12 @@ jobs:
           cd kernel_workspace
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          if [ "${{ env.KSU_TYPE }}" == 'ReSukiSU' ]; then
+            echo "CONFIG_KSU_MULTI_MANAGER_SUPPORT=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo 'KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%-Re-TG@qdykernel"' >> ./common/arch/arm64/configs/gki_defconfig
+          fi
+          
           echo "CONFIG_CRYPTO_LZ4=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -363,11 +403,12 @@ jobs:
           echo "CONFIG_F2FS_FS_LZ4=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_F2FS_FS_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_F2FS_FS_ZSTD=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
           echo "CONFIG_ZSMALLOC=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_ZRAM=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_ZRAM_WRITEBACK=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_SWAP=y" >> ./common/arch/arm64/configs/gki_defconfig
-
+          
           echo "CONFIG_NET_SCH_FQ_CODEL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_NET_SCH_FQ=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_NET_SCH_SFQ=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -378,11 +419,12 @@ jobs:
           echo "CONFIG_NET_SCH_INGRESS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_DEFAULT_FQ_CODEL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo 'CONFIG_DEFAULT_NET_SCH="fq_codel"' >> ./common/arch/arm64/configs/gki_defconfig
-
+          
           echo "CONFIG_IP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TCP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_IPV6_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_IP_NF_TARGET_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
           echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -398,10 +440,12 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TMPFS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_HEADERS_INSTALL=n" >> ./common/arch/arm64/configs/gki_defconfig
+          
           #Remove check_defconfig
           sudo sed -i 's/check_defconfig//' ./common/build.config.gki
 
