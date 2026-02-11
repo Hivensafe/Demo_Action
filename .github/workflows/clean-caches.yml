@@ -53,9 +53,7 @@ jobs:
       - name: 重置环境
         run: |
           rm -rf $HOME/.ccache/*
-          rm -rf $HOME/.ccache_6.1.57/*
-          rm -rf $HOME/.ccache_6.1.75/*
-          rm -rf $HOME/.ccache_6.1.118/*
+          rm -rf $HOME/.ccache*
           sudo apt clean
           sudo journalctl --vacuum-time=1s
           sudo rm -rf /var/log/*
