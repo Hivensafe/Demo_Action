@@ -55,6 +55,12 @@ on:
         required: false
         default: true
         type: boolean
+      
+      enable_serialid_check:
+        description: "开启SerialID校验"
+        required: false
+        default: true
+        type: boolean
 
        
 
@@ -71,6 +77,7 @@ jobs:
       CUSTOM_KERNEL_TIME:     ${{ github.event.inputs.custom_kernel_time }}
       ENABLE_SCX:       ${{ github.event.inputs.enable_scx }}
       ENABLE_BBG:       ${{ github.event.inputs.enable_bbg }}
+      ENABLE_SERIALID_CHECK:       ${{ github.event.inputs.enable_serialid_check }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -250,7 +257,24 @@ jobs:
             echo "ccache缓存命中详情:"
             ccache -sv
           fi
-         
+      
+      - name: 🛠 Set SerialID Check (添加SerialID校验)
+        if: ${{ env.ENABLE_SERIALID_CHECK == 'true' }}
+        working-directory: kernel_workspace/common
+        run: |
+          if grep -q 'SOC_SN_CHECK' init/main.c; then
+            echo "main.c 已包含, 跳过"
+            exit 0
+          else
+            cp "${GITHUB_WORKSPACE}/.github/workflows/tools/serialid_check.c" ./
+            LINE=$(grep -n '^#include' init/main.c | tail -n 1 | cut -d: -f1)
+            head -n "$LINE" init/main.c > init/main.c.patched
+            cat serialid_check.c >> init/main.c.patched
+            tail -n +$((LINE+1)) init/main.c >> init/main.c.patched
+            mv init/main.c.patched init/main.c
+            echo "已自动插入 serialid_check.c 到 main.c"
+          fi
+          
       - name: 🔧 apply lz4 1.10.0 & zstd 1.5.7 patches (添加lz4 1.10.0 & zstd 1.5.7补丁)
         run: |
           echo "正在添加lz4 1.10.0 & zstd 1.5.7补丁…"
