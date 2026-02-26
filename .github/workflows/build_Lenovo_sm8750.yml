@@ -220,6 +220,10 @@ jobs:
             echo "正在配置${{ env.KSU_TYPE }}..."
             if [ "${{ env.KSU_TYPE }}" == 'ReSukiSU' ]; then
               curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/refs/heads/main/kernel/setup.sh" | bash -s main
+              cd ./KernelSU 
+              KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
+              echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+              echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
             else
               curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s builtin
               cd ./KernelSU
@@ -256,32 +260,14 @@ jobs:
       - name: 🔧 Set up SUSFS (配置 SUSFS)
         run: |
           cd kernel_workspace
-          if [ "${{ env.KSU_TYPE }}" == 'ReSukiSU' ]; then
-            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android15-6.6
-            cd KernelSU 
-            git config --global user.email "qiudaoyu2888@gmail.com"
-            git config --global user.name "Q1udaoyu"
-            git revert e16cf610855b73fd248d9e3609cd993ec667de02
-            KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
-            echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-            echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
-            cd ..
-            cd common
-            wget https://gitlab.com/simonpunk/susfs4ksu/-/raw/f77334c982f9970958b856665c4d26ddf75e8248/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch
-            cd ..
-          else
-            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android15-6.6
-            cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
-            wget https://github.com/cctv18/oppo_oplus_realme_sm8750/raw/refs/heads/main/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
-            cd ./common
-            patch -p1 < 69_hide_stuff.patch || true
-            cd ..
-          fi
+          git clone --depth=1 https://github.com/cctv18/susfs4oki.git susfs4ksu -b oki-android15-6.6
+          wget https://raw.githubusercontent.com/cctv18/oppo_oplus_realme_sm8750/main/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
           cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
           cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch || true
+          patch -p1 -N -F 3 < 69_hide_stuff.patch || true
           cd ..
           echo "[INFO] 检查 susfs_def.h 是否存在..."
           if test -f common/include/linux/susfs_def.h; then
