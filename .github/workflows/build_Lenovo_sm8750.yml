@@ -118,62 +118,48 @@ jobs:
             echo "KERNEL_TIME=${{ env.CUSTOM_KERNEL_TIME }}" >> $GITHUB_ENV
           fi
 
-      - name: 🛠 Install dependencies and Initialize repo and sync
+      - name: 🛠 Install dependencies and Initialize repo and sync （安装环境依赖+初始化源码仓库及工具链）
         run: |
-          set -e
           rm -rf kernel_workspace
-          mkdir -p kernel_workspace
+          mkdir kernel_workspace
           cd kernel_workspace
+          sudo apt-mark hold firefox &&
+          sudo apt-mark hold libc-bin &&
+          sudo apt purge man-db &&
+          sudo rm -rf /var/lib/man-db/auto-update &&
+          sudo apt update &&
+          sudo apt-get install -y --no-install-recommends binutils python-is-python3 libssl-dev libelf-dev ccache p7zip-full &
+          echo "正在克隆源码仓库..."
+          aria2c -s16 -x16 -k1M "https://android.googlesource.com/kernel/common/+archive/refs/${gz_branch}/android15-6.6-${os_patch_level}.tar.gz" -o common.tar.gz && \
+          mkdir -p common && \
+          tar -xzf common.tar.gz -C common && \
+          rm -f common.tar.gz
 
-          echo "📦 安装依赖..."
-          sudo apt-get update -y
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            binutils python-is-python3 libssl-dev libelf-dev ccache p7zip-full aria2 unzip
-
-          echo "🚀 并发下载源码与工具链..."
-
-          # 1️⃣ 下载内核源码（后台）
-          (
-            aria2c -s16 -x16 -k1M \
-              "https://android.googlesource.com/kernel/common/+archive/refs/${gz_branch}/android15-6.6-${os_patch_level}.tar.gz" \
-              -o common.tar.gz
-            mkdir -p common
-            tar -xzf common.tar.gz -C common
-            rm -f common.tar.gz
-            echo "✅ 内核源码完成"
-          ) &
-
-          # 2️⃣ 下载 clang18（后台）
-          (
-            mkdir -p clang18
-            aria2c -s16 -x16 -k1M \
-              https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang18-r510928/clang-r510928.zip \
-              -o clang.zip
-            unzip -q clang.zip -d clang18
-            rm -f clang.zip
-            echo "✅ clang18 完成"
-          ) &
-
-          # 3️⃣ 下载 build-tools（后台）
-          (
-            aria2c -s16 -x16 -k1M \
-              https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang18-r510928/build-tools.zip \
-              -o build-tools.zip
-            unzip -q build-tools.zip
-            rm -f build-tools.zip
-            echo "✅ build-tools 完成"
-          ) &
-
-          # 等待所有后台任务完成
+          
+          echo "正在克隆llvm-clang18工具链..." &&
+          mkdir -p clang18 &&
+          aria2c -s16 -x16 -k1M https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang18-r510928/clang-r510928.zip -o clang.zip &&
+          unzip -q clang.zip -d clang18 &&
+          rm -rf clang.zip &
+          
+          echo "正在克隆构建工具..." &&
+          aria2c -s16 -x16 -k1M https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang18-r510928/build-tools.zip -o build-tools.zip &&
+          unzip -q build-tools.zip &&
+          rm -rf build-tools.zip
           wait
-
-          echo "🧹 去除 ABI 保护 & dirty 后缀..."
-          rm -f common/android/abi_gki_protected_exports_* || true
-
-          sed -i 's/ -dirty//g' common/scripts/setlocalversion
-          sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' common/scripts/setlocalversion
-
-          echo "🎉 所有源码及工具链初始化完成！"
+          echo "所有源码及llvm-Clang18工具链初始化完成！"
+          echo "=== 当前路径 ==="
+          pwd
+          echo "=== 当前目录内容 ==="
+          ls -al
+          echo "正在去除 ABI 保护 & 去除 dirty 后缀..."
+          rm common/android/abi_gki_protected_exports_* || true
+          # if [[ "${{ env.KERNEL_VERSION }}" != "6.6.102" ]]; then
+            for f in common/scripts/setlocalversion; do
+              sed -i 's/ -dirty//g' "$f"
+              sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' "$f"
+            done
+          # fi
 
       - name: 🛠 Set ccache DIR(配置ccache目录)
         run: |
