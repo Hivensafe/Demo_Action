@@ -57,13 +57,13 @@ jobs:
     runs-on: ubuntu-latest
     env:
       gz_branch: 'heads'
-      KSU_TYPE:           ${{ github.event.inputs.ksu_type }}
-      KERNEL_VERSION:           ${{ github.event.inputs.kernel_version }}
-      CUSTOM_KERNEL_SUFFIX:   ${{ github.event.inputs.custom_kernel_suffix }}
-      CUSTOM_KERNEL_TIME: ${{ github.event.inputs.custom_kernel_time }}
-      ENABLE_BBG:       ${{ github.event.inputs.enable_bbg }}
-      ENABLE_KPM:       ${{ github.event.inputs.enable_kpm }}
-      ENABLE_SIGNED:       ${{ github.event.inputs.enable_signed }}
+      KSU_TYPE:              ${{ github.event.inputs.ksu_type }}
+      KERNEL_VERSION:        ${{ github.event.inputs.kernel_version }}
+      CUSTOM_KERNEL_SUFFIX:  ${{ github.event.inputs.custom_kernel_suffix }}
+      CUSTOM_KERNEL_TIME:    ${{ github.event.inputs.custom_kernel_time }}
+      ENABLE_BBG:            ${{ github.event.inputs.enable_bbg }}
+      ENABLE_KPM:            ${{ github.event.inputs.enable_kpm }}
+      ENABLE_SIGNED:         ${{ github.event.inputs.enable_signed }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -346,7 +346,7 @@ jobs:
 
           if [ "${{ env.KSU_TYPE }}" == 'ReSukiSU' ]; then
             echo "CONFIG_KSU_MULTI_MANAGER_SUPPORT=y" >> ./common/arch/arm64/configs/gki_defconfig
-            echo 'KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%-Re-TG@qdykernel"' >> ./common/arch/arm64/configs/gki_defconfig
+            echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%-Re-TG@qdykernel"' >> ./common/arch/arm64/configs/gki_defconfig
           fi
           
           echo "CONFIG_CRYPTO_LZ4=y" >> ./common/arch/arm64/configs/gki_defconfig
