@@ -120,44 +120,91 @@ jobs:
 
       - name: 🛠 Install dependencies and Initialize repo and sync （安装环境依赖+初始化源码仓库及工具链）
         run: |
-          rm -rf kernel_workspace
-          mkdir kernel_workspace
-          cd kernel_workspace
-          
-          sudo apt-mark hold firefox &&
-          sudo apt-mark hold libc-bin &&
-          sudo apt purge man-db &&
-          sudo rm -rf /var/lib/man-db/auto-update &&
-          sudo apt update &&
-          sudo apt-get install -y --no-install-recommends binutils python-is-python3 libssl-dev libelf-dev ccache p7zip-full &
-          echo "正在克隆源码仓库..."
-          aria2c -s16 -x16 -k1M "https://android.googlesource.com/kernel/common/+archive/refs/${gz_branch}/android15-6.6-${os_patch_level}.tar.gz" -o common.tar.gz && \
-          mkdir -p common && \
-          tar -xzf common.tar.gz -C common && \
-          rm -f common.tar.gz &
+          set -e
+          set -o pipefail
 
-          
-          echo "正在克隆llvm-clang18工具链..." &&
-          mkdir -p clang18 &&
-          aria2c -s16 -x16 -k1M https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang18-r510928/clang-r510928.zip -o clang.zip &&
-          unzip -q clang.zip -d clang18 &&
-          rm -rf clang.zip &
-          
-          echo "正在克隆构建工具..." &&
-          aria2c -s16 -x16 -k1M https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang18-r510928/build-tools.zip -o build-tools.zip &&
-          unzip -q build-tools.zip &&
-          rm -rf build-tools.zip &
-          
-          wait
-          echo "所有源码及llvm-Clang18工具链初始化完成！"
-          echo "正在去除 ABI 保护 & 去除 dirty 后缀..."
-          rm common/android/abi_gki_protected_exports_* || true
-          # if [[ "${{ env.KERNEL_VERSION }}" != "6.6.102" ]]; then
-            for f in common/scripts/setlocalversion; do
-              sed -i 's/ -dirty//g' "$f"
-              sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' "$f"
-            done
-          # fi
+          echo "====== 初始化构建环境 ======"
+
+          rm -rf kernel_workspace
+          mkdir -p kernel_workspace
+          cd kernel_workspace
+
+          echo "====== 安装系统依赖 ======"
+
+          sudo apt-mark hold firefox libc-bin || true
+          sudo rm -f /var/lib/man-db/auto-update || true
+          sudo apt purge -y man-db || true
+          sudo apt update -y
+
+          sudo apt-get install -y --no-install-recommends \
+            binutils \
+            python-is-python3 \
+            libssl-dev \
+            libelf-dev \
+            ccache \
+            p7zip-full
+
+          echo "====== 定义下载函数 ======"
+
+          download_file () {
+            local url="$1"
+            local output="$2"
+
+            echo ">>> 下载 $output"
+
+            aria2c \
+              --summary-interval=5 \
+              --retry-wait=5 \
+              --max-tries=5 \
+              --timeout=30 \
+              -s8 -x8 -k1M \
+              "$url" \
+              -o "$output"
+
+            echo ">>> 校验 $output"
+            test -s "$output" || { echo "文件为空: $output"; exit 1; }
+          }
+
+          echo "====== 下载并解压 kernel common ======"
+
+          download_file \
+          "https://android.googlesource.com/kernel/common/+archive/refs/${gz_branch}/android15-6.6-${os_patch_level}.tar.gz" \
+          common.tar.gz
+
+          mkdir -p common
+          tar -xzf common.tar.gz -C common
+          rm -f common.tar.gz
+
+          echo "====== 下载 clang 工具链 ======"
+
+          mkdir -p clang18
+
+          download_file \
+          "https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang18-r510928/clang-r510928.zip" \
+          clang.zip
+
+          unzip -q clang.zip -d clang18
+          rm -f clang.zip
+
+          echo "====== 下载 build-tools ======"
+
+          download_file \
+          "https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang18-r510928/build-tools.zip" \
+          build-tools.zip
+
+          unzip -q build-tools.zip
+          rm -f build-tools.zip
+
+          echo "====== 去除 ABI 保护 & dirty 后缀 ======"
+
+          rm -f common/android/abi_gki_protected_exports_* || true
+
+          for f in common/scripts/setlocalversion; do
+            sed -i 's/ -dirty//g' "$f"
+            sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' "$f"
+          done
+
+          echo "====== 初始化完成 ======"
 
       - name: 🛠 Set ccache DIR(配置ccache目录)
         run: |
