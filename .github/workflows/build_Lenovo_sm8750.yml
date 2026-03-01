@@ -110,7 +110,7 @@ jobs:
                 echo 'KERNEL_TIME=Mon Jun 23 07:30:57 UTC 2025' >> $GITHUB_ENV
                 ;;
               6.6.102)
-                echo 'KERNEL_TIME=Tue Dec 9 15:43:22 UTC 2025' >> $GITHUB_ENV
+                echo 'KERNEL_TIME=Tue Dec 9 15:43:22 UTC 2025' >> $GITHUB_ENV
                 ;;
             esac
           else
