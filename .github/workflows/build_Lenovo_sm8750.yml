@@ -57,13 +57,13 @@ jobs:
     runs-on: ubuntu-latest
     env:
       gz_branch: 'heads'
-      KSU_TYPE:              ${{ github.event.inputs.ksu_type }}
-      KERNEL_VERSION:        ${{ github.event.inputs.kernel_version }}
-      CUSTOM_KERNEL_SUFFIX:  ${{ github.event.inputs.custom_kernel_suffix }}
-      CUSTOM_KERNEL_TIME:    ${{ github.event.inputs.custom_kernel_time }}
-      ENABLE_BBG:            ${{ github.event.inputs.enable_bbg }}
-      ENABLE_KPM:            ${{ github.event.inputs.enable_kpm }}
-      ENABLE_SIGNED:         ${{ github.event.inputs.enable_signed }}
+      KSU_TYPE:           ${{ github.event.inputs.ksu_type }}
+      KERNEL_VERSION:           ${{ github.event.inputs.kernel_version }}
+      CUSTOM_KERNEL_SUFFIX:   ${{ github.event.inputs.custom_kernel_suffix }}
+      CUSTOM_KERNEL_TIME: ${{ github.event.inputs.custom_kernel_time }}
+      ENABLE_BBG:       ${{ github.event.inputs.enable_bbg }}
+      ENABLE_KPM:       ${{ github.event.inputs.enable_kpm }}
+      ENABLE_SIGNED:       ${{ github.event.inputs.enable_signed }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -123,6 +123,7 @@ jobs:
           rm -rf kernel_workspace
           mkdir kernel_workspace
           cd kernel_workspace
+          
           sudo apt-mark hold firefox &&
           sudo apt-mark hold libc-bin &&
           sudo apt purge man-db &&
@@ -133,7 +134,7 @@ jobs:
           aria2c -s16 -x16 -k1M "https://android.googlesource.com/kernel/common/+archive/refs/${gz_branch}/android15-6.6-${os_patch_level}.tar.gz" -o common.tar.gz && \
           mkdir -p common && \
           tar -xzf common.tar.gz -C common && \
-          rm -f common.tar.gz
+          rm -f common.tar.gz &
 
           
           echo "正在克隆llvm-clang18工具链..." &&
@@ -145,13 +146,10 @@ jobs:
           echo "正在克隆构建工具..." &&
           aria2c -s16 -x16 -k1M https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang18-r510928/build-tools.zip -o build-tools.zip &&
           unzip -q build-tools.zip &&
-          rm -rf build-tools.zip
+          rm -rf build-tools.zip &
+          
           wait
           echo "所有源码及llvm-Clang18工具链初始化完成！"
-          echo "=== 当前路径 ==="
-          pwd
-          echo "=== 当前目录内容 ==="
-          ls -al
           echo "正在去除 ABI 保护 & 去除 dirty 后缀..."
           rm common/android/abi_gki_protected_exports_* || true
           # if [[ "${{ env.KERNEL_VERSION }}" != "6.6.102" ]]; then
@@ -222,10 +220,6 @@ jobs:
             echo "正在配置${{ env.KSU_TYPE }}..."
             if [ "${{ env.KSU_TYPE }}" == 'ReSukiSU' ]; then
               curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/refs/heads/main/kernel/setup.sh" | bash -s main
-              cd ./KernelSU 
-              KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
-              echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-              echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
             else
               curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s builtin
               cd ./KernelSU
@@ -270,48 +264,6 @@ jobs:
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch || true
           patch -p1 -N -F 3 < 69_hide_stuff.patch || true
-          cd ..
-          echo "[INFO] 检查 susfs_def.h 是否存在..."
-          if test -f common/include/linux/susfs_def.h; then
-            echo "[OK] 已找到 common/include/linux/susfs_def.h"
-          else
-            echo "[ERR] 未找到 susfs_def.h，终止执行"
-            exit 1
-          fi
-          BASE_C=common/fs/proc/base.c
-          echo "[INFO] 目标文件：$BASE_C"
-          
-          echo "[INFO] 检查是否已包含 susfs_def.h ..."
-          if grep -q 'susfs_def.h' "$BASE_C"; then
-            echo "[SKIP] $BASE_C 中已包含 susfs_def.h"
-          else
-            echo "[INFO] 准备插入 susfs_def.h 引用..."
-          
-            if grep -q '#include <linux/cpufreq_times.h>' "$BASE_C"; then
-              sed -i '/#include <linux\/cpufreq_times.h>/a \
-          \
-          #ifdef CONFIG_KSU_SUSFS_SUS_MAP\
-          #include <linux/susfs_def.h>\
-          #endif\
-          ' "$BASE_C"
-              echo "[OK] susfs_def.h 引用已插入"
-            else
-              echo "[ERR] 未找到 cpufreq_times.h include，无法插入 susfs_def.h"
-              exit 1
-            fi
-          fi
-          echo "[INFO] 清理可能存在的 patch 残留文件..."
-          rm -f common/fs/proc/base.c.rej
-          echo "[OK] 清理完成（如存在）"
-          echo "[INFO] 最终校验 susfs_def.h 插入结果："
-          if grep -n 'susfs_def.h' "$BASE_C"; then
-            echo "[OK] 最终校验通过"
-          else
-            echo "[ERR] 最终校验失败"
-            exit 1
-          fi
-          echo "[OK] SUSFS 补丁处理流程全部完成"
-          
           case "${{ env.KERNEL_VERSION }}" in
             6.6.56)
               echo "[INFO] 当前构建内核版本为6.6.56，正在修复 undeclared identifier 'vma' 编译错误"
@@ -348,7 +300,7 @@ jobs:
 
           if [ "${{ env.KSU_TYPE }}" == 'ReSukiSU' ]; then
             echo "CONFIG_KSU_MULTI_MANAGER_SUPPORT=y" >> ./common/arch/arm64/configs/gki_defconfig
-            echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%-Re-TG@qdykernel"' >> ./common/arch/arm64/configs/gki_defconfig
+            echo 'KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%-Re-TG@qdykernel"' >> ./common/arch/arm64/configs/gki_defconfig
           fi
           
           echo "CONFIG_CRYPTO_LZ4=y" >> ./common/arch/arm64/configs/gki_defconfig
