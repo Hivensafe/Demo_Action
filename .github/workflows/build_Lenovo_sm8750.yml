@@ -267,7 +267,7 @@ jobs:
           case "${{ env.KERNEL_VERSION }}" in
             6.6.56)
               echo "[INFO] 当前构建内核版本为6.6.56，正在修复 undeclared identifier 'vma' 编译错误"
-              cd ./common/fs/proc
+              cd ./fs/proc
               sed -i 's/vma = find_vma(mm, start_vaddr);/struct vm_area_struct *vma = find_vma(mm, start_vaddr);/' task_mmu.c
               ;;
           esac
