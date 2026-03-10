@@ -1,4 +1,7 @@
 name: Build_oneplus_sm8750
+permissions:
+  contents: read
+  actions: write
 on:
   workflow_dispatch:
     inputs:
@@ -575,7 +578,21 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-${{ env.KSU_TYPE }}-${{ env.DEVICES_NAME }}-${{ github.run_id }}
-          
+
+      - name: 🧹 Clean old ccache (清理旧缓存)
+        if: env.BUILD_TIME > 480
+        run: |
+          echo "构建时间超过8分钟，已保存ccache缓存"
+          echo "正在清理旧缓存..."
+          gh cache list --limit 100 | grep "ccache-${{ env.KSU_TYPE }}-${{ env.DEVICES_NAME }}" | awk '{print $1}' | while read id; do
+            if [[ "$id" != "${{ github.run_id }}" ]]; then
+              echo "Deleting cache $id"
+              gh cache delete $id
+            fi
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: 📦 ReName Image  (修改镜像名)
         run: |
           cd kernel_workspace/common/out/arch/arm64/boot
