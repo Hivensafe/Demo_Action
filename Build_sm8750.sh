@@ -138,6 +138,10 @@ info "内核时间: $KERNEL_TIME"
 info "是否集成完美风驰：$ENABLE_SCX"
 info "是否启用BBG: $ENABLE_BBG"
 
+echo "请确认以上信息..."
+echo "按任意键继续，按下 Ctrl+C 退出..."
+read -n 1 -s
+
 
 # 工作目录 - 按机型区分
 WORKSPACE="$HOME/kernel_${DEVICE_NAME}"
