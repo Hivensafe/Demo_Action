@@ -33,7 +33,7 @@ jobs:
 
       - name: 设置路径
         run: |
-          echo "CCACHE_DIR=$HOME/.ccache_${a}_${b}" >> $GITHUB_ENV
+          echo "CCACHE_DIR=$HOME/.ccache_${A}_${B}" >> $GITHUB_ENV
       - name: Restore cache
         id: cache
         uses: actions/cache/restore@v4
@@ -47,7 +47,7 @@ jobs:
           ls -lah "${{ env.CCACHE_DIR }}" || true
       - name: 打包
         run: |
-          tar --zstd -cf "${{ inputs.cache_key }}.tar.zst" -C "$HOME" ".ccache_${a}_${b}"
+          tar --zstd -cf "${{ inputs.cache_key }}.tar.zst" -C "$HOME" ".ccache_${A}_${B}"
       - name: 上传
         uses: actions/upload-artifact@v4
         with:
