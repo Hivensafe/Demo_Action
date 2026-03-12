@@ -1,4 +1,4 @@
-name: export-all-ccache
+name: export-ccache
 
 on:
   workflow_dispatch:
@@ -7,27 +7,28 @@ permissions:
   actions: read
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   list:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.gen.outputs.matrix }}
+      matrix: ${{ steps.set.outputs.matrix }}
 
     steps:
-      - name: 安装工具
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: 获取 cache 列表
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Get cache list
         run: |
-          gh auth status
-          gh api repos/${{ github.repository }}/actions/caches > caches.json
+          curl -s \
+          -H "Authorization: Bearer ${{ github.token }}" \
+          https://api.github.com/repos/${{ github.repository }}/actions/caches \
+          > caches.json
 
-      - name: 生成 matrix
-        id: gen
+      - name: Generate matrix
+        id: set
         run: |
           KEYS=$(jq -r '.actions_caches[].key | select(startswith("ccache-"))' caches.json | jq -R -s -c 'split("\n")[:-1]')
           echo "matrix={\"key\":$KEYS}" >> $GITHUB_OUTPUT
@@ -35,38 +36,30 @@ jobs:
   export:
     needs: list
     runs-on: ubuntu-latest
+
     strategy:
+      fail-fast: false
       matrix: ${{ fromJson(needs.list.outputs.matrix) }}
 
     steps:
-      - name: 安装工具
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y zstd
-
-      - name: 设置路径
-        run: |
-          echo "CCACHE_DIR=$HOME/.ccache_ReSukiSU_6.6.89" >> $GITHUB_ENV
-
       - name: Restore cache
         id: cache
         uses: actions/cache/restore@v4
         with:
-          path: ${{ env.CCACHE_DIR }}
+          path: cache_dir
           key: ${{ matrix.key }}
 
-      - name: 检查
-        run: |
-          echo "key=${{ matrix.key }}"
-          echo "cache-hit=${{ steps.cache.outputs.cache-hit }}"
-          ls -lah "${{ env.CCACHE_DIR }}" || true
+      - name: Install zstd
+        run: sudo apt-get install -y zstd
 
-      - name: 打包
+      - name: Pack cache
+        if: steps.cache.outputs.cache-hit == 'true'
         run: |
-          tar --zstd -cf "${{ matrix.key }}.tar.zst" -C "$HOME" "$(basename $CCACHE_DIR)"
+          tar --zstd -cf "${{ matrix.key }}.tar.zst" cache_dir
 
-      - name: 上传
+      - name: Upload artifact
+        if: steps.cache.outputs.cache-hit == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: cache-${{ matrix.key }}
-          path: "*.tar.zst"
+          name: ${{ matrix.key }}
+          path: ${{ matrix.key }}.tar.zst
