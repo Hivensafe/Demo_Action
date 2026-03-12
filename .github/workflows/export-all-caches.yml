@@ -13,6 +13,7 @@ jobs:
     env:
       KSU_TYPE: ReSukiSU
       KERNEL_VERSION: 6.6.89
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: 安装工具
