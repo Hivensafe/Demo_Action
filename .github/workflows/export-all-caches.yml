@@ -12,21 +12,17 @@ jobs:
 
     env:
       KSU_TYPE: ReSukiSU
-      KERNEL_VERSION: 6.6.56
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: 安装工具
         run: sudo apt-get update && sudo apt-get install -y zstd
 
-      - name: 设置路径
-        run: |
-          echo "CCACHE_DIR=$HOME/.ccache_${KSU_TYPE}_${KERNEL_VERSION}" >> $GITHUB_ENV
       - name: Restore cache
         id: cache
         uses: actions/cache/restore@v4
         with:
-          path: ${{ env.CCACHE_DIR }}
+          path: ${{ $HOME/.ccache_${KSU_TYPE}* }}
           key: ${{ inputs.cache_key }}
 
       - name: 查看缓存
