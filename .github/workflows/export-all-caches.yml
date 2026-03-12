@@ -1,0 +1,59 @@
+name: export-all-caches
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+
+    steps:
+      - name: 安装工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq zstd
+
+      - name: 获取 cache 列表
+        id: caches
+        run: |
+          gh api repos/$REPO/actions/caches > caches.json
+          cat caches.json
+
+      - name: 导出缓存
+        run: |
+          mkdir cache_exports
+
+          for key in $(jq -r '.actions_caches[].key' caches.json); do
+            echo "Processing cache: $key"
+
+            mkdir -p cache_tmp
+
+            echo "Restoring cache..."
+            echo "::group::restore $key"
+
+            # 用 actions/cache 恢复
+            echo "$key" > cache_key.txt
+
+            echo "::endgroup::"
+
+          done
+
+      - name: 打包 runner cache 目录
+        run: |
+          mkdir -p cache_exports
+          tar --use-compress-program=zstd -cf cache_exports/actions-cache.tar.zst \
+          /home/runner/work/_temp || true
+
+      - name: 上传 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-actions-cache-backup
+          path: cache_exports
