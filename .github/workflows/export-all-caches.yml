@@ -12,7 +12,7 @@ jobs:
 
     env:
       KSU_TYPE: ReSukiSU
-      KERNEL_VERSION: 6.6.102
+      KERNEL_VERSION: 6.6.56
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
