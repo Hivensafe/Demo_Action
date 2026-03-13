@@ -108,18 +108,16 @@ jobs:
 
       - name: 🛠 Install dependencies and Initialize repo and sync （安装环境依赖+初始化源码仓库及工具链）
         run: |
+          set -euo pipefail
           rm -rf kernel_workspace
           mkdir kernel_workspace
           cd kernel_workspace
-          echo "当前仓库：$GITHUB_REPOSITORY"
-          echo "当前分支：$GITHUB_REF_NAME"
-          
           sudo apt-mark hold firefox &&
           sudo apt-mark hold libc-bin &&
           sudo apt purge man-db &&
           sudo rm -rf /var/lib/man-db/auto-update &&
           sudo apt update &&
-          sudo apt-get install -y --no-install-recommends binutils python-is-python3 libssl-dev libelf-dev ccache &
+          sudo apt-get install -y --no-install-recommends aria2 unzip binutils python-is-python3 libssl-dev libelf-dev ccache &
           echo "正在克隆源码仓库..."
           aria2c -s16 -x16 -k1M https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8650/archive/refs/heads/oneplus/${REPO_MANIFEST}.zip -o common.zip &&
           unzip -q common.zip && 
@@ -144,6 +142,7 @@ jobs:
           for f in common/scripts/setlocalversion; do
             sed -i 's/ -dirty//g' "$f"
             sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' "$f"
+          done
           
       - name: 🛠 Set ccache DIR(配置ccache目录)
         run: |
