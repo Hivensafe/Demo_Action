@@ -4,52 +4,80 @@ on:
   workflow_dispatch:
     inputs:
       cache_key:
+        description: "要导出的完整 cache key，例如 ccache-ReSukiSU-oneplus_13-123456789"
         required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   export:
     runs-on: ubuntu-latest
 
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
     steps:
-      - name: Parse text
+      - name: 解析并校验 cache key
+        shell: bash
         run: |
-          INPUT="${{ inputs.cache_key }}"
+          set -euo pipefail
 
-          IFS='-' read -r prefix a b number <<< "$INPUT"
+          CACHE_KEY='${{ inputs.cache_key }}'
+          if [[ ! "$CACHE_KEY" =~ ^ccache-[^-]+-.+-[0-9]+$ ]]; then
+            echo "::error::cache_key 格式无效: $CACHE_KEY"
+            echo "::error::期望格式: ccache-<KSU_TYPE>-<DEVICE_OR_VERSION>-<RUN_ID>"
+            exit 1
+          fi
 
-          echo "A=$a" >> $GITHUB_ENV
-          echo "B=$b" >> $GITHUB_ENV
+          CACHE_BODY="${CACHE_KEY#ccache-}"
+          RUN_ID="${CACHE_BODY##*-}"
+          CACHE_SCOPE="${CACHE_BODY%-${RUN_ID}}"
+          KSU_TYPE="${CACHE_SCOPE%%-*}"
+          TARGET="${CACHE_SCOPE#${KSU_TYPE}-}"
+          CCACHE_DIR="$HOME/.ccache_${KSU_TYPE}_${TARGET}"
+          ARCHIVE_NAME="${CACHE_KEY}.tar.zst"
 
-      - name: Use variables
+          echo "CACHE_KEY=$CACHE_KEY" >> "$GITHUB_ENV"
+          echo "KSU_TYPE=$KSU_TYPE" >> "$GITHUB_ENV"
+          echo "TARGET=$TARGET" >> "$GITHUB_ENV"
+          echo "CCACHE_DIR=$CCACHE_DIR" >> "$GITHUB_ENV"
+          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> "$GITHUB_ENV"
+
+          echo "KSU_TYPE=$KSU_TYPE"
+          echo "TARGET=$TARGET"
+          echo "CCACHE_DIR=$CCACHE_DIR"
+
+      - name: 安装打包工具
         run: |
-          echo "a = $A"
-          echo "b = $B"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends zstd
 
-      - name: 安装工具
-        run: sudo apt-get update && sudo apt-get install -y zstd
-
-      - name: 设置路径
-        run: |
-          echo "CCACHE_DIR=$HOME/.ccache_${A}_${B}" >> $GITHUB_ENV
-      - name: Restore cache
+      - name: 恢复缓存
         id: cache
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ${{ inputs.cache_key }}
+          key: ${{ env.CACHE_KEY }}
+          fail-on-cache-miss: true
 
-      - name: 查看缓存
+      - name: 检查缓存内容
+        shell: bash
         run: |
+          set -euo pipefail
           echo "cache-hit=${{ steps.cache.outputs.cache-hit }}"
-          ls -lah "${{ env.CCACHE_DIR }}" || true
-      - name: 打包
+          test -d "${{ env.CCACHE_DIR }}"
+          find "${{ env.CCACHE_DIR }}" -maxdepth 2 -type f | head -n 20
+
+      - name: 打包缓存
+        shell: bash
         run: |
-          tar --zstd -cf "${{ inputs.cache_key }}.tar.zst" -C "$HOME" ".ccache_${A}_${B}"
-      - name: 上传
+          set -euo pipefail
+          tar --use-compress-program='zstd -T0 -19' -cf "${{ env.ARCHIVE_NAME }}" -C "$HOME" "$(basename "${{ env.CCACHE_DIR }}")"
+          ls -lh "${{ env.ARCHIVE_NAME }}"
+
+      - name: 上传导出包
         uses: actions/upload-artifact@v4
         with:
-          name: exported-${{ inputs.cache_key }}
-          path: "*.tar.zst"
+          name: exported-${{ env.CACHE_KEY }}
+          path: ${{ env.ARCHIVE_NAME }}
+          if-no-files-found: error
