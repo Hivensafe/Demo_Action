@@ -112,33 +112,39 @@ jobs:
           rm -rf kernel_workspace
           mkdir kernel_workspace
           cd kernel_workspace
-          sudo apt-mark hold firefox &&
-          sudo apt-mark hold libc-bin &&
-          sudo apt purge man-db &&
-          sudo rm -rf /var/lib/man-db/auto-update &&
-          sudo apt update &&
-          sudo apt-get install -y --no-install-recommends aria2 unzip binutils python-is-python3 libssl-dev libelf-dev ccache &
+          sudo apt-mark hold firefox
+          sudo apt-mark hold libc-bin
+          sudo apt-get purge -y man-db || true
+          sudo rm -rf /var/lib/man-db/auto-update
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends aria2 unzip binutils python-is-python3 libssl-dev libelf-dev ccache
           echo "正在克隆源码仓库..."
-          aria2c -s16 -x16 -k1M https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8650/archive/refs/heads/oneplus/${REPO_MANIFEST}.zip -o common.zip &&
-          unzip -q common.zip && 
-          mv "android_kernel_common_oneplus_sm8650-oneplus-${REPO_MANIFEST}" common &&
-          rm -rf common.zip &
+          (
+            aria2c -s16 -x16 -k1M https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8650/archive/refs/heads/oneplus/${REPO_MANIFEST}.zip -o common.zip
+            unzip -q common.zip
+            mv "android_kernel_common_oneplus_sm8650-oneplus-${REPO_MANIFEST}" common
+            rm -f common.zip
+          ) &
           
-          echo "正在克隆llvm-Clang20工具链..." &&
-          mkdir -p clang20 &&
-          aria2c -s16 -x16 -k1M https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang20-r547379/clang-r547379.zip -o clang.zip &&
-          unzip -q clang.zip -d clang20 &&
-          rm -rf clang.zip &
+          echo "正在克隆llvm-Clang20工具链..."
+          (
+            mkdir -p clang20
+            aria2c -s16 -x16 -k1M https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang20-r547379/clang-r547379.zip -o clang.zip
+            unzip -q clang.zip -d clang20
+            rm -f clang.zip
+          ) &
           
-          echo "正在克隆构建工具..." &&
-          aria2c -s16 -x16 -k1M https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang20-r547379/build-tools.zip -o build-tools.zip &&
-          unzip -q build-tools.zip &&
-          rm -rf build-tools.zip &
+          echo "正在克隆构建工具..."
+          (
+            aria2c -s16 -x16 -k1M https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang20-r547379/build-tools.zip -o build-tools.zip
+            unzip -q build-tools.zip
+            rm -f build-tools.zip
+          ) &
           
           wait
           echo "所有源码及llvm-Clang20工具链初始化完成！"
           echo "正在去除 ABI 保护 & 去除 dirty 后缀..."
-          rm common/android/abi_gki_protected_exports_* || true
+          rm -f common/android/abi_gki_protected_exports_* || true
           for f in common/scripts/setlocalversion; do
             sed -i 's/ -dirty//g' "$f"
             sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' "$f"
@@ -466,11 +472,12 @@ jobs:
 
       - name: 🔨 Build Kernel (构建内核)
         run: |
+          set -euo pipefail
           WORKDIR="$(pwd)"
           export PATH="/usr/lib/ccache:$PATH"
-          export PATH="$WORKDIR/kernel_workspace/clang18/bin:$PATH"
+          export PATH="$WORKDIR/kernel_workspace/clang20/bin:$PATH"
           export PATH="$WORKDIR/kernel_workspace/build-tools/bin:$PATH"
-          CLANG_DIR="$WORKDIR/kernel_workspace/clang18/bin"
+          CLANG_DIR="$WORKDIR/kernel_workspace/clang20/bin"
           CLANG_VERSION="$($CLANG_DIR/clang --version | head -n 1)"
           LLD_VERSION="$($CLANG_DIR/ld.lld --version | head -n 1)"
           pahole_version=$(pahole --version 2>/dev/null | head -n1); [ -z "$pahole_version" ] && echo "pahole版本：未安装" || echo "pahole版本：$pahole_version"
@@ -518,9 +525,10 @@ jobs:
           sudo rm -rf /usr/local/lib/android &
           sudo rm -rf /opt/ghc &
           sudo rm -rf /opt/hostedtoolcache/CodeQL &
-          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" LD="ld.lld" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig &&
+          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" LD="ld.lld" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig
           make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="$(pwd)/cc-wrapper" LD="$(pwd)/ld-wrapper" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error Image
           LD_PRELOAD=$PRELOAD_LIBS stat ./Makefile
+          echo "内核编译完成！"
           echo "ccache状态："
           ccache -s
       
