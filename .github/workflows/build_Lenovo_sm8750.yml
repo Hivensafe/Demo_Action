@@ -186,9 +186,6 @@ jobs:
           KERNEL_VERSION_NAME: ${{ env.KERNEL_VERSION }}
         with:
           script: |
-            const repoName = process.env.PUBLIC_CACHE_REPO || 'showdo/Build_Oneplus_Realme_Action';
-            const releaseTag = process.env.PUBLIC_CACHE_TAG || 'Public_Ccache';
-            const [owner, repo] = repoName.split('/');
             const kernelVersion = process.env.KERNEL_VERSION_NAME;
             let selected = null;
 
@@ -196,42 +193,67 @@ jobs:
             const exactAssetName = `ccache-${kernelVersion}.tar.zst`;
             const legacyAssetPattern = new RegExp(`^ccache-(.+-)?${escapeRegex(kernelVersion)}(-[0-9]+)?\\.tar\\.zst$`);
 
+            const unique = (values) => [...new Set(values.filter(Boolean))];
+            const candidateRepos = unique([
+              process.env.PUBLIC_CACHE_REPO,
+              'showdo/Build_Lenovo_sm8750',
+              'showdo/Build_Oneplus_Realme_Action',
+            ]);
+            const candidateTags = unique([
+              process.env.PUBLIC_CACHE_TAG,
+              'Public_Ccache',
+              'Public_Ccache_SM8750',
+            ]);
+
             core.info(`当前仓库无匹配 ccache，开始按内核版本查找公共缓存: ${kernelVersion}`);
-            core.info(`缓存来源仓库: ${owner}/${repo}`);
-            core.info(`缓存来源标签: ${releaseTag}`);
             core.info(`优先匹配公共缓存文件: ${exactAssetName}`);
 
-            let release;
-            try {
-              const response = await github.rest.repos.getReleaseByTag({
-                owner,
-                repo,
-                tag: releaseTag,
-              });
-              release = response.data;
-            } catch (error) {
-              core.info(`未找到公共缓存 release: ${releaseTag}`);
-              return;
-            }
+            for (const repoName of candidateRepos) {
+              const [owner, repo] = repoName.split('/');
+              for (const releaseTag of candidateTags) {
+                core.info(`尝试缓存来源: ${owner}/${repo}@${releaseTag}`);
 
-            for (const asset of release.assets || []) {
-              const isExactMatch = asset.name === exactAssetName;
-              const isLegacyMatch = legacyAssetPattern.test(asset.name);
-              if (isExactMatch || isLegacyMatch) {
-                const shouldReplace =
-                  !selected ||
-                  (isExactMatch && !selected.exact) ||
-                  (isExactMatch === selected.exact && new Date(asset.updated_at) > new Date(selected.updated_at));
-
-                if (shouldReplace) {
-                  selected = {
-                    name: asset.name,
-                    updated_at: asset.updated_at,
-                    tag: release.tag_name,
-                    repo: `${owner}/${repo}`,
-                    exact: isExactMatch,
-                  };
+                let release;
+                try {
+                  const response = await github.rest.repos.getReleaseByTag({
+                    owner,
+                    repo,
+                    tag: releaseTag,
+                  });
+                  release = response.data;
+                } catch (error) {
+                  core.info(`未找到公共缓存 release: ${owner}/${repo}@${releaseTag}`);
+                  continue;
                 }
+
+                for (const asset of release.assets || []) {
+                  const isExactMatch = asset.name === exactAssetName;
+                  const isLegacyMatch = legacyAssetPattern.test(asset.name);
+                  if (isExactMatch || isLegacyMatch) {
+                    const shouldReplace =
+                      !selected ||
+                      (isExactMatch && !selected.exact) ||
+                      (isExactMatch === selected.exact && new Date(asset.updated_at) > new Date(selected.updated_at));
+
+                    if (shouldReplace) {
+                      selected = {
+                        name: asset.name,
+                        updated_at: asset.updated_at,
+                        tag: release.tag_name,
+                        repo: `${owner}/${repo}`,
+                        exact: isExactMatch,
+                      };
+                    }
+                  }
+                }
+
+                if (selected?.exact) {
+                  break;
+                }
+              }
+
+              if (selected?.exact) {
+                break;
               }
             }
 
