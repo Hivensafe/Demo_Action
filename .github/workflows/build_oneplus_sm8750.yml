@@ -312,10 +312,24 @@ jobs:
         run: |
           set -euo pipefail
           echo "当前仓库无匹配缓存，开始下载公共缓存: $PUBLIC_CACHE_ASSET"
+          rm -f "$PUBLIC_CACHE_ASSET"
           rm -rf "$CCACHE_DIR"
           gh release download "$PUBLIC_CACHE_TAG" --repo "$PUBLIC_CACHE_REPO" --pattern "$PUBLIC_CACHE_ASSET" --dir .
-          tar --use-compress-program=unzstd -xf "$PUBLIC_CACHE_ASSET" -C "$HOME"
+          TEMP_EXTRACT_DIR="$(mktemp -d)"
+          tar --use-compress-program=unzstd -xf "$PUBLIC_CACHE_ASSET" -C "$TEMP_EXTRACT_DIR"
+          EXTRACTED_CCACHE_DIR="$(find "$TEMP_EXTRACT_DIR" -maxdepth 1 -mindepth 1 -type d -name '.ccache_*' | head -n 1)"
+          if [ -z "$EXTRACTED_CCACHE_DIR" ]; then
+            echo "::error::公共缓存解压后未找到 .ccache_* 目录"
+            exit 1
+          fi
+
+          mkdir -p "$CCACHE_DIR"
+          shopt -s dotglob nullglob
+          mv "$EXTRACTED_CCACHE_DIR"/* "$CCACHE_DIR"/
+          shopt -u dotglob nullglob
+          rm -rf "$TEMP_EXTRACT_DIR"
           test -d "$CCACHE_DIR"
+          ls -lah "$CCACHE_DIR" | head -n 20
           echo "PUBLIC_CCACHE_USED=true" >> "$GITHUB_ENV"
           echo "公共缓存恢复完成: $CCACHE_DIR"
       
