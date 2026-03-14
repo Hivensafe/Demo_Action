@@ -382,6 +382,16 @@ jobs:
             mv init/main.c.patched init/main.c
             echo "已自动插入 serialid_check.c 到 main.c"
           fi
+
+      - name: 🔒 Apply unicode bypass hard fix (应用零宽字符绕过修复补丁)
+        working-directory: kernel_workspace/common
+        run: |
+          set -euo pipefail
+          echo "正在应用零宽字符绕过修复补丁..."
+          cp "${GITHUB_WORKSPACE}/.github/workflows/tools/unicode_bypass_hard_fix_6.1+.patch" ./unicode_bypass_hard_fix_6.1+.patch
+          git apply --check ./unicode_bypass_hard_fix_6.1+.patch
+          git apply ./unicode_bypass_hard_fix_6.1+.patch
+          echo "零宽字符绕过修复补丁应用完成"
           
       - name: 🔧 apply lz4 1.10.0 & zstd 1.5.7 patches (添加lz4 1.10.0 & zstd 1.5.7补丁)
         run: |
